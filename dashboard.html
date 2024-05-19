@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    @keyframes blink-bg {
+      0%, 100% {
+        background-color: rgb(255, 0, 0);
+      }
+      50% {
+        background-color: black;
+      }
+    }
+    .blink-bg {
+      animation: blink-bg 1s step-start 0s infinite;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    td, th {
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+    body {
+      background-color: black;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h2> WARNING :- Blinking if : abs(Dynamic Stop - Last Price) / Last Price  <= +/- 2%</h2>
+  <table id="json-display">
+    <tr>
+      <th>Ticker Symbol</th>
+      <th>Total Shares</th>
+      <th>Average Filling Price</th>
+      <th>Dynamic Stop</th>
+      <th>Last Price</th>
+      <th>Unrealized GAIN (+)/ LOSS (-)</th>
+    </tr>
+  </table>
+  <br>
+  <br>
+  <button id="stop-button">Stop Blinking</button>
+  <button id="resume-button" style="display:none;">Resume Blinking</button>
+  <script>
+    // Check if the percentage difference is within 2%
+    const alart_dynamic_stop_percentage = 10.0;
+    const ws = new WebSocket('ws://localhost:9002');
+    let isAnimationStopped = false;
+    let blinkInterval;
+
+    ws.onmessage = function(event) {
+      const json = JSON.parse(event.data);
+      const table = document.getElementById('json-display');
+      const rows = table.rows;
+      let rowFound = false;
+
+      // Check if the symbol is already in the table
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const symbolCell = row.cells[0];
+        if (symbolCell.textContent === json['ticker_symbol']) {
+          rowFound = true;
+
+          // Update the row
+          let cellIndex = 1;
+          const cells = [json['shares'], json['avg_filling_price'].toLocaleString(), json['dynamic_stop_price'].toLocaleString(), json['last_price'].toLocaleString(), json['gain_loss'].toLocaleString()];
+          cells.forEach((cellValue) => {
+            row.cells[cellIndex].textContent = cellValue;
+            cellIndex++;
+          });
+
+          updateRowStyle(row, json);
+        }
+      }
+
+      // If the symbol was not found, insert a new row
+      if (!rowFound) {
+        const row = table.insertRow();
+        let cellIndex = 0;
+        const cells = [json['ticker_symbol'], json['shares'], json['avg_filling_price'].toLocaleString(), json['dynamic_stop_price'].toLocaleString(), json['last_price'].toLocaleString(), json['gain_loss'].toLocaleString()];
+        cells.forEach((cellValue) => {
+          const cell = row.insertCell(cellIndex);
+          cell.textContent = cellValue;
+          cellIndex++;
+        });
+
+        updateRowStyle(row, json);
+      }
+    };
+
+    function updateRowStyle(row, json) {
+      const gainLoss = json['gain_loss'];
+      const avgFillingPrice = json['avg_filling_price'];
+      const lastPrice = json['last_price'];
+      const dynamicStop = json['dynamic_stop_price'];
+      const gainLossCell = row.cells[5]; // Unrealized GAIN (+)/ LOSS (-) column index
+
+      if (gainLoss > 0) {
+        row.style.backgroundColor = 'green';
+      } else {
+        row.style.backgroundColor = 'darkred';
+      }
+    
+      const abs_diff = Math.abs(dynamicStop - lastPrice);
+      const percentageDiff = (abs_diff / lastPrice) * 100;
+
+      // Check if the percentage difference is within 2%
+      if (percentageDiff <= alart_dynamic_stop_percentage && !isAnimationStopped) {
+        gainLossCell.classList.add('blink-bg');
+      } else {
+        gainLossCell.classList.remove('blink-bg');
+        console.log(percentageDiff);
+      }
+    }
+
+    document.getElementById('stop-button').addEventListener('click', () => {
+      clearInterval(blinkInterval);
+      isAnimationStopped = true;
+      document.getElementById('stop-button').style.display = 'none';
+      document.getElementById('resume-button').style.display = 'inline';
+    });
+
+    document.getElementById('resume-button').addEventListener('click', () => {
+      blinkInterval = setInterval(() => {
+        const blinkCells = document.querySelectorAll('.blink-bg');
+        blinkCells.forEach(cell => {
+          cell.classList.toggle('blink-bg');
+        });
+      }, 1000);
+      isAnimationStopped = false;
+      document.getElementById('resume-button').style.display = 'none';
+      document.getElementById('stop-button').style.display = 'inline';
+    });
+  </script>
+</body>
+</html>

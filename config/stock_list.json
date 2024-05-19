@@ -1,0 +1,26 @@
+[
+  {
+      "ticker_symbol" : "TSLA",
+      "average_filling_price" : 121.34,
+      "shares" : 5.0,
+      "min_profit_target_percentage" : 0.05
+  },
+  {
+      "ticker_symbol" : "VOO",
+      "average_filling_price" : 359.85,
+      "shares" : 5.0,
+      "min_profit_target_percentage" : 0.05
+  },
+  {
+      "ticker_symbol" : "BINANCE:BTCUSDT",
+      "average_filling_price" : 60000.2,
+      "shares" : 1.0,
+      "min_profit_target_percentage" : 0.05
+  },
+  {
+    "ticker_symbol" : "BINANCE:ETCUSDT",
+    "average_filling_price" : 30.0,
+    "shares" : 2.0,
+    "min_profit_target_percentage" : 0.05
+  }
+]
