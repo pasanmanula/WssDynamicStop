@@ -1,1 +1,1 @@
-wss://ws.finnhub.io/?token=cep4e9iad3ifeqh3d650cep4e9iad3ifeqh3d65g
+wss://ws.finnhub.io/?token=<add_your_api_key_here>
