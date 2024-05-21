@@ -2,6 +2,14 @@
 <html>
 <head>
   <style>
+    @keyframes blink-bg-bad {
+      0%, 100% {
+        background-color: rgb(250, 121, 0);
+      }
+      50% {
+        background-color: black;
+      }
+    }
     @keyframes blink-bg {
       0%, 100% {
         background-color: rgb(255, 0, 0);
@@ -12,6 +20,9 @@
     }
     .blink-bg {
       animation: blink-bg 1s step-start 0s infinite;
+    }
+    .blink-bg-bad {
+      animation: blink-bg-bad 1s step-start 0s infinite;
     }
     table {
       border-collapse: collapse;
@@ -27,7 +38,7 @@
   </style>
 </head>
 <body>
-  <h2> WARNING :- Blinking if : abs(Dynamic Stop - Last Price) / Last Price  <= +/- 2%</h2>
+  <h1>STOCK MONITOR WITH A DYNAMIC STOP STRATERGY</h1>
   <table id="json-display">
     <tr>
       <th>Ticker Symbol</th>
@@ -36,18 +47,25 @@
       <th>Dynamic Stop</th>
       <th>Last Price</th>
       <th>Unrealized GAIN (+)/ LOSS (-)</th>
+      <th>Close Position</th>
     </tr>
   </table>
+  <br>
+  <br>
+  <h4>Indicator :- Blinking (RED) if : abs(Dynamic Stop - Last Price) / Last Price <= - 2%</h4>
+  <h4>Indicator :- Blinking (YELLOW) if : abs(Dynamic Stop - Last Price) / Last Price <= + 2%</h4>
+  <h4>Indicator :- Entire row (RED) : Average Filling Price > Last Price ( loss )</h4>
+  <h4>Indicator :- Entire row (GREEN) : Average Filling Price > Last Price ( profit )</h4>
+  <h4>Indicator :- Last Price cell (RED) : Dynamic Stop Price is greater than the current last price.</h4>
+  <h4>Indicator :- Last Price cell (GREEN) : Dynamic Stop Price < Last Price </h4>
   <br>
   <br>
   <button id="stop-button">Stop Blinking</button>
   <button id="resume-button" style="display:none;">Resume Blinking</button>
   <script>
-    // Check if the percentage difference is within 2%
-    const alart_dynamic_stop_percentage = 10.0;
+    const alart_dynamic_stop_percentage = 2.0;
     const ws = new WebSocket('ws://localhost:9002');
     let isAnimationStopped = false;
-    let blinkInterval;
 
     ws.onmessage = function(event) {
       const json = JSON.parse(event.data);
@@ -55,46 +73,57 @@
       const rows = table.rows;
       let rowFound = false;
 
-      // Check if the symbol is already in the table
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         const symbolCell = row.cells[0];
         if (symbolCell.textContent === json['ticker_symbol']) {
           rowFound = true;
-
-          // Update the row
-          let cellIndex = 1;
-          const cells = [json['shares'], json['avg_filling_price'].toLocaleString(), json['dynamic_stop_price'].toLocaleString(), json['last_price'].toLocaleString(), json['gain_loss'].toLocaleString()];
-          cells.forEach((cellValue) => {
-            row.cells[cellIndex].textContent = cellValue;
-            cellIndex++;
-          });
-
-          updateRowStyle(row, json);
+          updateRow(row, json);
+          break;
         }
       }
 
-      // If the symbol was not found, insert a new row
       if (!rowFound) {
-        const row = table.insertRow();
-        let cellIndex = 0;
-        const cells = [json['ticker_symbol'], json['shares'], json['avg_filling_price'].toLocaleString(), json['dynamic_stop_price'].toLocaleString(), json['last_price'].toLocaleString(), json['gain_loss'].toLocaleString()];
-        cells.forEach((cellValue) => {
-          const cell = row.insertCell(cellIndex);
-          cell.textContent = cellValue;
-          cellIndex++;
-        });
-
-        updateRowStyle(row, json);
+        addRow(table, json);
       }
     };
 
+    function updateRow(row, json) {
+      row.cells[1].textContent = json['shares'];
+      row.cells[2].textContent = json['avg_filling_price'].toLocaleString();
+      row.cells[3].textContent = json['dynamic_stop_price'].toLocaleString();
+      row.cells[4].textContent = json['last_price'].toLocaleString();
+      row.cells[5].textContent = json['gain_loss'].toLocaleString();
+
+      updateRowStyle(row, json);
+    }
+
+    function addRow(table, json) {
+      const row = table.insertRow();
+      row.insertCell(0).textContent = json['ticker_symbol'];
+      row.insertCell(1).textContent = json['shares'];
+      row.insertCell(2).textContent = json['avg_filling_price'].toLocaleString();
+      row.insertCell(3).textContent = json['dynamic_stop_price'].toLocaleString();
+      row.insertCell(4).textContent = json['last_price'].toLocaleString();
+      row.insertCell(5).textContent = json['gain_loss'].toLocaleString();
+
+      const closeCell = row.insertCell(6);
+      const closeButton = document.createElement('button');
+      closeButton.textContent = 'Close entire position';
+      closeButton.onclick = function() {
+        ws.send(JSON.stringify({ action: 'close_position', ticker_symbol: json['ticker_symbol'] }));
+      };
+      closeCell.appendChild(closeButton);
+
+      updateRowStyle(row, json);
+    }
+
     function updateRowStyle(row, json) {
       const gainLoss = json['gain_loss'];
-      const avgFillingPrice = json['avg_filling_price'];
       const lastPrice = json['last_price'];
       const dynamicStop = json['dynamic_stop_price'];
-      const gainLossCell = row.cells[5]; // Unrealized GAIN (+)/ LOSS (-) column index
+      const gainLossCell = row.cells[5];
+      const lastPriceCell = row.cells[4];
 
       if (gainLoss > 0) {
         row.style.backgroundColor = 'green';
@@ -105,29 +134,34 @@
       const abs_diff = Math.abs(dynamicStop - lastPrice);
       const percentageDiff = (abs_diff / lastPrice) * 100;
 
-      // Check if the percentage difference is within 2%
       if (percentageDiff <= alart_dynamic_stop_percentage && !isAnimationStopped) {
-        gainLossCell.classList.add('blink-bg');
+        if (lastPrice > dynamicStop) {
+            gainLossCell.classList.add('blink-bg-bad');
+            gainLossCell.classList.remove('blink-bg');
+        } else {
+            gainLossCell.classList.add('blink-bg');
+            gainLossCell.classList.remove('blink-bg-bad');
+        }
+        
       } else {
         gainLossCell.classList.remove('blink-bg');
-        console.log(percentageDiff);
+        gainLossCell.classList.remove('blink-bg-bad');
+      }
+
+      if (lastPrice < dynamicStop) {
+        lastPriceCell.style.backgroundColor = 'red';
+      } else {
+        lastPriceCell.style.backgroundColor = 'green';
       }
     }
 
     document.getElementById('stop-button').addEventListener('click', () => {
-      clearInterval(blinkInterval);
       isAnimationStopped = true;
       document.getElementById('stop-button').style.display = 'none';
       document.getElementById('resume-button').style.display = 'inline';
     });
 
     document.getElementById('resume-button').addEventListener('click', () => {
-      blinkInterval = setInterval(() => {
-        const blinkCells = document.querySelectorAll('.blink-bg');
-        blinkCells.forEach(cell => {
-          cell.classList.toggle('blink-bg');
-        });
-      }, 1000);
       isAnimationStopped = false;
       document.getElementById('resume-button').style.display = 'none';
       document.getElementById('stop-button').style.display = 'inline';

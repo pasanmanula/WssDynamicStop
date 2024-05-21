@@ -2,6 +2,8 @@
 #define STOCK_MARKER_CUSTOM_CONSTANTS_HPP_
 
 #include <iostream>
+#include <thread>
+#include <condition_variable>
 
 const std::size_t kWebSocketServerPort = 9002;
 const std::size_t kDataPipeMaxSize = 100;

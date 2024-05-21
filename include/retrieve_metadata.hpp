@@ -10,11 +10,14 @@
 namespace persistent_data {
 
 struct StockData {
-    std::string ticker_symbol;
-    double avg_filling_price{0.0};
-    double shares{0.0};
-    double min_profit_target_percentage{0.0};
-    double last_dynamic_stop_price{0.0};
+  std::string ticker_symbol;
+  double avg_filling_price{0.0};
+  double shares{0.0};
+  double min_profit_target_percentage{0.0};
+  double last_dynamic_stop_price{0.0};
+  size_t tick_length{1};
+  size_t increasing_cumulative_ticks{0};
+  double increment_temparature{0.01};
 };
 
 /**
@@ -74,6 +77,8 @@ std::unordered_map<std::string, StockData> get_ticker_list_from_file()
     data.avg_filling_price = item["average_filling_price"];
     data.shares = item["shares"];
     data.min_profit_target_percentage = item["min_profit_target_percentage"];
+    data.tick_length = item["dynamic_stop_strategy_tick_length"];
+    data.increment_temparature = item["dynamic_stop_strategy_increment_percentage"];
     stock_data.insert(std::pair<std::string, StockData>(item["ticker_symbol"], data));
   }
 
