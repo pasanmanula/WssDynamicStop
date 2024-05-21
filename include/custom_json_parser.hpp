@@ -19,7 +19,7 @@ struct DataSlice {
   double last_price{0.0};
   double avg_filling_price{0.0};
   double shares{0.0};
-  double dynamic_stop_price{0.0};
+  double last_dynamic_stop_price{0.0};
   double gain_loss{0.0};
 };
 
@@ -55,22 +55,38 @@ bool process_ticker_data(
         ui_data.shares = persistent_itr->second.shares;
         // Initial dynamic is default to min profit target
         if (persistent_itr->second.last_dynamic_stop_price == 0.0) {
-          ui_data.dynamic_stop_price =
+          const double initial_dynamic_stop =
             ui_data.avg_filling_price * (1.0 + persistent_itr->second.min_profit_target_percentage);
+          ui_data.last_dynamic_stop_price = initial_dynamic_stop;
+          persistent_itr->second.last_dynamic_stop_price = initial_dynamic_stop;
         } else {
           // Subsequent dynamic stop
-          // TODO - should based on unrealized gain
-          // ui_data.dynamic_stop_price = new_dynamic_stop; // implement your own new_dynamic_stop
+          if (persistent_itr->second.increasing_cumulative_ticks > persistent_itr->second.tick_length) {
+            persistent_itr->second.increasing_cumulative_ticks = 0;
+            const double subsequent_dynamic_stop =
+              ((ui_data.last_price - persistent_itr->second.last_dynamic_stop_price) 
+              * persistent_itr->second.increment_temparature)
+              + persistent_itr->second.last_dynamic_stop_price;
+            if (subsequent_dynamic_stop > persistent_itr->second.last_dynamic_stop_price) {
+              ui_data.last_dynamic_stop_price = subsequent_dynamic_stop;
+              persistent_itr->second.last_dynamic_stop_price = subsequent_dynamic_stop;
+            } else {
+              ui_data.last_dynamic_stop_price = persistent_itr->second.last_dynamic_stop_price;
+            }
+          } else {
+            persistent_itr->second.increasing_cumulative_ticks += 1;
+            ui_data.last_dynamic_stop_price = persistent_itr->second.last_dynamic_stop_price;
+          }
         }
-        persistent_itr->second.last_dynamic_stop_price = ui_data.dynamic_stop_price;
         ui_data.gain_loss =
           std::round(
             (ui_data.last_price - ui_data.avg_filling_price) * persistent_itr->second.shares * 100.0) / 100.0;
-      }
-
-      if (!data_queue.push(ui_data))
-      {
-        std::cerr << "Queue is full, dropping data.\n";
+        if (!data_queue.push(ui_data))
+        {
+          std::cerr << "Queue is full, dropping data.\n";
+        }
+      } else {
+        // std::cout << "Ticker Symbol : " << ticker_symbol << " not found!" << std::endl;
       }
     }
     return true;

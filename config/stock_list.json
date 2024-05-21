@@ -1,26 +1,34 @@
 [
-  {
-      "ticker_symbol" : "TSLA",
-      "average_filling_price" : 121.34,
-      "shares" : 5.0,
-      "min_profit_target_percentage" : 0.05
-  },
-  {
+    {
+      "ticker_symbol" : "VICI",
+      "average_filling_price" : 27.98,
+      "shares" : 11.0,
+      "min_profit_target_percentage" : 0.05,
+      "dynamic_stop_strategy_tick_length" : 50,
+      "dynamic_stop_strategy_increment_percentage" : 0.010
+    },
+    {
       "ticker_symbol" : "VOO",
       "average_filling_price" : 359.85,
       "shares" : 5.0,
-      "min_profit_target_percentage" : 0.05
-  },
-  {
+      "min_profit_target_percentage" : 0.05,
+      "dynamic_stop_strategy_tick_length" : 60,
+      "dynamic_stop_strategy_increment_percentage" : 0.025
+    },
+    {
       "ticker_symbol" : "BINANCE:BTCUSDT",
       "average_filling_price" : 60000.2,
       "shares" : 1.0,
-      "min_profit_target_percentage" : 0.05
-  },
-  {
-    "ticker_symbol" : "BINANCE:ETCUSDT",
-    "average_filling_price" : 30.0,
-    "shares" : 2.0,
-    "min_profit_target_percentage" : 0.05
-  }
-]
+      "min_profit_target_percentage" : 0.05,
+      "dynamic_stop_strategy_tick_length" : 100,
+      "dynamic_stop_strategy_increment_percentage" : 0.025
+    },
+    {
+      "ticker_symbol" : "BINANCE:ETHUSDT",
+      "average_filling_price" : 28.2,
+      "shares" : 1.0,
+      "min_profit_target_percentage" : 0.05,
+      "dynamic_stop_strategy_tick_length" : 100,
+      "dynamic_stop_strategy_increment_percentage" : 0.025
+    }
+  ]

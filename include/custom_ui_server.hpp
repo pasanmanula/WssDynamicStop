@@ -3,6 +3,7 @@
 
 #include <string>
 #include <thread>
+#include <condition_variable>
 #include <set>
 #include <nlohmann/json.hpp>
 #include <boost/lockfree/queue.hpp>
@@ -19,9 +20,16 @@ public:
    * 
    */
   explicit WebSocketServer(
-    const uint16_t server_port, boost::lockfree::queue<finnhub_json::DataSlice>& data_queue)
-      : server_thread_{std::thread(&WebSocketServer::init_and_run_wss_server, this, server_port)},
-        queue_(data_queue)
+    boost::lockfree::queue<finnhub_json::DataSlice>& data_queue,
+    std::queue<std::string>& unsubscribe_list,
+    std::mutex& unsubscribe_pipe_mutex,
+    std::condition_variable& condition_variable,
+    const uint16_t server_port)
+      : queue_(data_queue),
+        unsubscribe_list_(unsubscribe_list),
+        unsubscribe_pipe_mutex_(unsubscribe_pipe_mutex),
+        condition_variable_(condition_variable),
+        server_thread_{std::thread(&WebSocketServer::init_and_run_wss_server, this, server_port)}
   {
 
   }
@@ -131,6 +139,7 @@ private:
   {
     try
     {
+      server_.set_reuse_addr(true);
       server_.listen(port);
       server_.start_accept();
       std::cout << "Custom UI data server has been started on port : " << port << std::endl;
@@ -139,6 +148,10 @@ private:
     catch(const websocketpp::exception& e)
     {
       std::cerr << e.what() << '\n';
+      server_.stop_listening();
+
+      // Close all connections gracefully
+      server_.get_io_service().stop();
     } 
   }
 
@@ -151,7 +164,7 @@ private:
   * - "last_price": The last price of the ticker.
   * - "avg_filling_price": The average filling price of the ticker.
   * - "shares": The total shares of the ticker.
-  * - "dynamic_stop_price": The dynamic stop price of the ticker.
+  * - "dynamic_stop_price": The last dynamic stop price of the ticker.
   * - "gain_loss": The gain or loss associated with the ticker.
   *
   * @param data_slice The DataSlice object to serialize.
@@ -164,9 +177,19 @@ private:
     ui_json_data["last_price"] = data_slice.last_price;
     ui_json_data["avg_filling_price"] = data_slice.avg_filling_price;
     ui_json_data["shares"] = data_slice.shares;
-    ui_json_data["dynamic_stop_price"] = data_slice.dynamic_stop_price;
+    ui_json_data["dynamic_stop_price"] = data_slice.last_dynamic_stop_price;
     ui_json_data["gain_loss"] = data_slice.gain_loss;
     return ui_json_data.dump();
+  }
+
+  std::string retrieve_close_position(const std::string& json_string)
+  {
+    nlohmann::json ui_json_data = nlohmann::json::parse(json_string, nullptr, false);
+    if (ui_json_data["action"] == "close_position") {
+        return ui_json_data["ticker_symbol"];
+    } else {
+        return "";
+    }
   }
 
  /**
@@ -202,7 +225,6 @@ private:
     std::lock_guard<std::mutex> lock(client_conn_mutex_);
     client_connections_.insert(hdl);
     std::cout << "A new client has been connected" << std::endl;
-    // server_.send(hdl, "Hello user", websocketpp::frame::opcode::text);
   }
 
   /**
@@ -225,7 +247,12 @@ private:
     std::weak_ptr<void> weak_hdl,
     websocketpp::config::asio_tls_client::message_type::ptr msg)
   {
-      std::cout << "A new message has been received to the server! Ignoring!" << std::endl;
+      std::string return_close_position = retrieve_close_position(msg->get_payload());
+      if (!return_close_position.empty()) {
+        std::lock_guard<std::mutex> lock(unsubscribe_pipe_mutex_);
+        unsubscribe_list_.push(std::move(return_close_position));
+        condition_variable_.notify_one();
+      }
   }
 
   /**
@@ -243,6 +270,9 @@ private:
   // Member variables
   std::vector<persistent_data::StockData> persistent_list_;
   boost::lockfree::queue<finnhub_json::DataSlice>& queue_;
+  std::queue<std::string>& unsubscribe_list_;
+  std::mutex& unsubscribe_pipe_mutex_;
+  std::condition_variable& condition_variable_;
   std::thread server_thread_, monitor_thread_;
   websocketpp::server<websocketpp::config::asio> server_;
   std::set<

@@ -9,11 +9,26 @@ int main()
 {
   // Only shared resource between websocket client and websocker server to ui.
   boost::lockfree::queue<finnhub_json::DataSlice> queue(kDataPipeMaxSize);
+  std::queue<std::string> unsubscribe_list;
+
+  //  ThreadConditions thread_sync;
+  std::mutex unsubscribe_pipe_mutex;
+  std::condition_variable condition_variable;
 
   FinnhubWssConnection finnhub_conn_client(
-    persistent_data::get_finnhub_uri(), queue, persistent_data::get_ticker_list_from_file());
+    queue,
+    unsubscribe_list,
+    unsubscribe_pipe_mutex,
+    condition_variable,
+    persistent_data::get_finnhub_uri(),
+    persistent_data::get_ticker_list_from_file());
 
-  WebSocketServer websocket_server(kWebSocketServerPort, queue);
+  WebSocketServer websocket_server(
+    queue,
+    unsubscribe_list,
+    unsubscribe_pipe_mutex,
+    condition_variable,
+    kWebSocketServerPort);
 
   return 0;
 }

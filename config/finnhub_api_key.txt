@@ -1,1 +1,2 @@
-wss://ws.finnhub.io/?token=<add_your_api_key_here>
+wss://ws.finnhub.io/?token=c<Add YOUR OWN KEY>
+
