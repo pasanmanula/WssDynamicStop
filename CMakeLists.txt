@@ -4,8 +4,8 @@ project(stock_marker)
 set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-#   add_compile_options(-Wall -Wextra -Wno-missing-field-initializers -O3)
-  add_compile_options(-g) # uncomment this if you want to debug with gdb
+  add_compile_options(-Wall -Wextra -Wno-missing-field-initializers -O3)
+#   add_compile_options(-g) # uncomment this if you want to debug with gdb
 endif()
 
 # API KEY PATH
